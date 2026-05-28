@@ -1,165 +1,260 @@
-# TRANSCENDENCE
+# TranscenDANCE
 
-## **Notes for teammembers:**  
+TranscenDANCE is a full-stack multiplayer Pong web application built as a three-person school project. The goal was to turn a simple arcade game into an internet-playable platform with accounts, real-time gameplay, live chat, friend management, tournaments, OAuth login, persistent statistics, and Dockerized deployment.
 
-*This repo includes the material from the following repositories, combined :*  
+This project was completed over four months, from October 2024 to January 2025. It received a final grade of 118/100, including bonus work.
 
-- [postgresql_django_docker](https://github.com/svvoii/postgresql_django_docker)  
-- [custom_user_model](https://github.com/svvoii/custom_user_model)  
-- [django_oauth_42api](https://github.com/svvoii/django_oauth_42api.git)  
+<img src="./assets/gifs/ft_transcendence.gif" width="500">
 
-*Each repository above is a tutorial on its own. So, feel free to check them out if needed.*   
+## Project Summary
 
-- additionally the `live chat` has been added to the project as `a_chat` app in the `_main_project` directory. (no separate repository for this one).  
+The base challenge was to create a multiplayer Pong game playable over the internet. In practice, this required building much more than the game screen:
 
-*To compare against the subject requirements this project includes the following, so far :*  
+- A Django backend with a custom user model
+- A JavaScript single-page frontend
+- Real-time Pong using WebSockets
+- Local and online multiplayer game modes
+- Two-, three-, and four-player match support
+- Four-player tournament lobbies and bracket progression
+- Live chat with public, private, and group conversations
+- Friend requests, friend lists, blocking, and user search
+- Match history and game statistics
+- Google OAuth and custom 42 OAuth login
+- PostgreSQL persistence
+- Redis-backed WebSocket/channel state and game-state caching
+- Nginx reverse proxy with HTTPS and WebSocket forwarding
+- A separate terminal-based Pong client that connects to the same backend
 
-### Web
-- (Major module): Use a Framework as backend. *(We use Django. Not sure what else they consider for this modul to be valid.)*
-- (Minor module): Use a database for the backend. *(We use PostgreSQL.)*
+For someone outside the 42 school system: this is best understood as a capstone-style full-stack project. The assignment starts with Pong, but the real difficulty is integrating many web application systems that must work together in real time.
 
-### User Management
-- (Major module): Standard user management, authentication, ... *(Covered in the custom user model repository.)*
-- (Major module): Implementing a remote authentication. *(Covered in the 42 API repository.)*  
+## What Makes This Project Challenging
 
-### Gameplay and user experience
-- (Major module): Live chat. *(No separate repository for this one.)* 
+The difficult parts were not only drawing a ball and paddles. The challenging student-level work was in the system integration:
 
-<br><br>
+**Real-time multiplayer synchronization**
 
-## **TO RUN THE PROJECT**
+The game loop runs on the backend and broadcasts state to connected clients through Django Channels WebSockets. Player input travels from the browser to the backend, updates Redis-cached game state, and is then sent back to all players. This avoids each browser running its own separate version of the game.
 
-<br>
+**Shared state across HTTP, WebSockets, Redis, and PostgreSQL**
 
-***0. Clone the repository.***  
+The app uses PostgreSQL for durable data such as users, matches, scores, chat messages, friends, and tournaments. Redis is used for real-time channel layers and cached active game state. Keeping those two responsibilities separate is a common production-style architecture problem.
 
-*not gonna tell you how :D*
+**Multiple multiplayer modes**
 
-<br>
+The Pong logic supports standard two-player games and expanded three- and four-player modes. In the larger modes, paddles can exist on more than two sides of the board, scoring changes, and the game state has to track up to four players at once.
 
-***1. Create the `.env` file.***  
+**Tournament orchestration**
 
-*This one is important since the project depends on the environment variables to set up all the business for different purposes..*  
+The tournament system coordinates four users through a lobby, creates two first-round game sessions, records round winners, creates a final match, and broadcasts progress to the lobby in real time. This is harder than a normal match because the app must coordinate several users across several game sessions.
 
-*So, `.env` file should be created in the root directory of this repository.. here is the example (just copy-paste):*
+**Authentication and social features**
 
-```bash
-# = = = = = = =
-# PYTHON:
-# = = = = = = =
-PYTHONUNBUFFERED=1 # Prevents Python from writing pyc files to disc (equivalent to python -B option)
-PYTHONDONTWRITEBYTECODE=1 # Prevents Python from buffering stdout and stderr (equivalent to python -u option)
+The project includes a custom Django user model, normal registration/login, OAuth login, profile editing, profile images, friend requests, blocking, and match statistics. These features turn the game into a small social platform rather than a single isolated game page.
 
-# = = = = = = =
-# DJANGO:
-# = = = = = = =
+**Live chat integrated with gameplay**
+
+Chat is implemented with WebSockets and persisted messages. Users can open private conversations, see message history, track online counts, and invite another user into a game from the chat interface.
+
+**Deployment-style Docker setup**
+
+The app runs as multiple services: Django, PostgreSQL, Redis, and Nginx. Nginx terminates HTTPS and proxies both normal HTTP traffic and WebSocket traffic to the Django app.
+
+**Bonus terminal client**
+
+The `CLI_play` directory contains a separate command-line Pong client. It logs into the Django backend, creates or joins a game, connects over WebSockets, and renders the game in the terminal. This proves the backend game API is not tied only to the browser UI.
+
+## Tech Stack
+
+- **Backend:** Django, Django REST Framework, Django Channels, Daphne/ASGI
+- **Frontend:** Vanilla JavaScript single-page app, HTML, CSS, Canvas
+- **Database:** PostgreSQL
+- **Real-time layer:** Redis, channels-redis, WebSockets
+- **Authentication:** Django auth, custom user model, django-allauth, Google OAuth, custom 42 OAuth provider
+- **Proxy/deployment:** Docker Compose, Nginx, HTTPS self-signed certificate setup
+- **CLI client:** Python, curses-style terminal rendering, requests, websockets
+
+## Repository Structure
+
+```text
+.
+├── _main_project/              # Django project and all Django apps
+│   ├── _main_project/          # Settings, URLs, ASGI config, middleware
+│   ├── a_user/                 # Custom user model, profiles, stats, blocking
+│   ├── a_game/                 # Pong sessions, game loop, game API, WebSockets
+│   ├── a_tournament/           # Tournament models, views, WebSocket lobby logic
+│   ├── a_chat/                 # Chatrooms, messages, chat WebSocket consumer
+│   ├── a_friends/              # Friend lists and friend requests
+│   ├── a_oauth2/               # Custom 42 OAuth provider
+│   ├── a_pass/                 # Password-related views
+│   ├── a_spa_frontend/         # Single-page app entry views
+│   ├── static/                 # JavaScript, CSS, images, frontend assets
+│   └── templates/              # Django templates
+├── CLI_play/                   # Terminal Pong client
+├── nginx/                      # Nginx reverse proxy and HTTPS config
+├── docker-compose.yml          # Web, database, Redis, and Nginx services
+├── Dockerfile                  # Django application image
+├── entrypoint.sh               # Migration, setup, and server startup script
+├── Makefile                    # Convenience commands for Docker workflow
+└── requirements.txt            # Python dependencies
+```
+
+## Main Features
+
+### Pong Gameplay
+
+Players can create and join game sessions through the web UI. The backend creates a `GameSession`, initializes a `GameState`, stores active game state in Redis, and broadcasts updates over `/ws/pong/<game_id>/`.
+
+Supported game modes include:
+
+- Local match
+- Online two-player match
+- Online three-player match
+- Online four-player match
+- Chat-created two-player match invitations
+- Tournament matches
+
+The browser version renders the game with an HTML canvas. Players can use keyboard controls or on-screen buttons.
+
+### Tournaments
+
+The tournament system creates a lobby with a shareable tournament ID. When four players join, the app assigns players into two first-round matches. Winners advance into a final match, and the lobby receives real-time updates through a tournament WebSocket.
+
+### User Accounts
+
+Users can register, log in, edit profiles, upload profile images, search other users, view match history, and track win/loss stats. The backend uses a custom `Account` model instead of Django's default user model.
+
+### Friends and Blocking
+
+The app supports friend requests, accepting/declining/canceling requests, removing friends, and blocking users. Blocking affects social interactions such as private messaging and friend requests.
+
+### Live Chat
+
+Chat supports public, private, and group chatrooms. Messages are stored in the database, while real-time delivery happens through WebSockets. The frontend chat widget can also start a Pong invitation from a private chat.
+
+### OAuth Login
+
+The project includes third-party authentication with Google and a custom OAuth provider for 42's API. The custom provider lives in `a_oauth2`.
+
+### CLI Pong Client
+
+`CLI_play/cli_pong.py` is a separate client that can authenticate with the web app, create or join a game, connect to the Pong WebSocket, and render live game state in the terminal.
+
+## How The System Works
+
+At a high level:
+
+1. A user logs in through the SPA frontend.
+2. The frontend requests a new game session from the Django REST endpoint.
+3. Django creates a `GameSession` in PostgreSQL.
+4. A `GameState` object is cached in Redis for fast real-time updates.
+5. Each player connects to the game WebSocket.
+6. When all expected players are ready, the backend starts the game loop.
+7. Player input is sent to Django over HTTP endpoints.
+8. The game loop updates the ball, paddles, scores, and winner state.
+9. Updated state is broadcast to all connected players over WebSockets.
+10. When the match ends, final scores and user stats are persisted to PostgreSQL.
+
+## Running The Project
+
+The project is intended to run through Docker Compose.
+
+### 1. Create `.env`
+
+Create a `.env` file in the repository root:
+
+```env
+PYTHONUNBUFFERED=1
+PYTHONDONTWRITEBYTECODE=1
+
 DEBUG=True
-SECRET_KEY='some_secret_words'
+SECRET_KEY='change-me'
 ALLOWED_HOSTS=*
+
 DJANGO_SUPERUSER_EMAIL=admin@gmail.com
 DJANGO_SUPERUSER_USERNAME=admin
-DJANGO_SUPERUSER_PASSWORD=qetwry135246
+DJANGO_SUPERUSER_PASSWORD=change-me
 
-# sosial accounts settings for django-allauth
-GOOGLE_CLIENT_ID='see-the-NOTE-below'
-GOOGLE_SECRET='see-the-NOTE-below'
+GOOGLE_CLIENT_ID='your-google-client-id'
+GOOGLE_SECRET='your-google-secret'
 
-42_CLIENT_ID='see-the-NOTE-below'
-42_SECRET='see-the-NOTE-below'
+42_CLIENT_ID='your-42-client-id'
+42_SECRET='your-42-secret'
 
-# = = = = = = =
-# POSTGRES:
-# = = = = = = =
-# for PostgreSQL as well as Django in separate docker containers:
 DATABASE_URL=postgres://postgres:postgres@db:5432/postgres
-
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=postgres
 POSTGRES_DB=postgres
-
 ```
 
-**NOTE:**  
-- *Regarding the `GOOGLE_CLIENT_ID` and `GOOGLE_SECRET` refer to [this repo](https://github.com/svvoii/django_oauth_google) to set up your own Google API credentials. (See point 9 in the README)*
-- *Regarding the `42_CLIENT_ID` and `42_SECRET` refer to [this repo](https://github.com/svvoii/django_oauth_42api.git) to set up your own 42 API credentials. (See point 12 in the README)*  
-- *If you dont want to do that.. just ask me for my credentials..*  
+OAuth credentials are only required if you want Google or 42 login to work. Normal local accounts can be used for development.
 
-<br>
+### 2. Start The App
 
-***2. RUN the project.***  
-
-*Once the `.env` file is created and filled all the variables listed above, the project can be run.*  
-
-*The setup of this repository is set up to run the project completely in the docker containers with the ability to make changes to the code on the local machine.*  
-
-*Also, the Makefile is available to run docker and docker compose commands to make it easier to manage the containers.*  
-
-All `make` commands:  
 ```bash
-make build
-make build-no-cache
 make up
-make up-db
-make down
-make rmi
-make rmvol
-make ls
-make clean
-make re
 ```
 
-- *`make up` command will build the images, create the containers and run the project.*  
-- *`make re` command will remove the containers, volumes, rebuild the images and run the project.*  
+The app is served through Nginx at:
 
+```text
+https://localhost:8000
+```
 
-<br><br>
+Because the local setup uses a self-signed certificate, the browser may show a certificate warning.
 
-## **ADDITIONAL INFO**
+### 3. Useful Make Commands
 
-<br>
+```bash
+make build          # Build Docker images
+make up             # Build and start the full app
+make down           # Stop and remove containers
+make logs           # Follow Docker logs
+make re             # Clean, rebuild, and restart
+make enter-web-app  # Open a shell in the Django container
+```
 
-**1.** *All the requirements for the project are listed in the `requirements.txt` file. Those are installed in the docker container when the image is built with Dockerfile.*
+Note: `make clean` and `make re` remove containers, images, volumes, and generated migration files. Use them only when you are comfortable resetting local state.
 
-<br>
+## Trying The Main User Flows
 
-**2.** *There is a `entrypoint.sh` file in the root directory of the repo. This file is used to run some additional commands when the container is created. This makes the setup of the project easier.*  
+1. Open `https://localhost:8000`.
+2. Register or log in.
+3. Click `Start`.
+4. Choose `Local Match`, `Online Multiplayer`, or `Tournament`.
+5. For online multiplayer, create a match and share the generated game ID with another logged-in user.
+6. For tournaments, create a lobby and share the tournament ID until four players join.
+7. Open a user's profile or chat to test private messaging and game invitations.
 
-*For example:*  
-- *The migrations are applied to the database when the container is created.*
-- *The superuser is created for the admin panel once the migrations are applied.*
-- *The social accounts are set up in the admin panel to use the 3rd party authentication to sign in with 42 API, Google, etc.*  
-- *The is a public chat room available for all users, as soon as they sign in. The `public_chat` chat room is created in the database once the container is up.*
-- *The last thing is the `entrypoint.sh` file is used to run the Django (Daphne) server.*
+## Running The CLI Client
 
-**NOTE**: *The logic in the `entrypoint.sh` setting up all the above as if those are python commands. Those custom commands are defined in the `_main_project/_commands/management/commands/` directory (should be like this). Feel free to check them out if curious.*  
+The terminal client is in `CLI_play`.
 
-<br>
+```bash
+cd CLI_play
+pip install -r requirements_cli.txt
+python cli_pong.py
+```
 
-**3.** *It is not possible to push any changes to the `main` branch of this repo. All the changes shall be made in the separate branches and then merged with the `main` branch via pull request.*  
+The CLI client expects its own environment configuration for credentials, host, and game mode. See `CLI_play/README.md` for the full setup.
 
+## Notable Implementation Details
 
-<br><br>
+- `a_game/game_logic.py` contains the core Pong state update logic.
+- `a_game/consumers.py` runs the WebSocket game loop and broadcasts state.
+- `a_game/views.py` exposes game creation, joining, movement, quitting, and ending APIs.
+- `a_tournament/consumers.py` coordinates tournament lobby updates and round progression.
+- `a_chat/consumers.py` handles real-time chat messages and online counts.
+- `_main_project/asgi.py` combines chat, game, and tournament WebSocket routes.
+- `nginx/nginx.conf` includes specific WebSocket proxy settings under `/ws/`.
+- `entrypoint.sh` applies migrations, creates a superuser, creates social apps, creates the public chatroom, reloads active game state, and starts Django.
 
-## **LIVE CHAT FUNCTIONSLITY**
+## Project Metadata
 
-*The project is set up to run the Django server with the Daphne server. This is done to use the Django Channels for the live chat functionality.*
-
-*So, the available functionality is the following :*  
-- *There is a `Puplic Chat` room available for all users.*
-- *The users can initiate a private chat with any other user, regardless of being friends or not.*
-- *The users can create a group chat with multiple users. To join the group chat, the link should be shared with the respective users.*
-- *The admin of the group chat can remove users from the group chat and delete the group chat.*
-- *The users can block other users, this will prevent the exchange of private messages, as well as sending friend request.*
-- *To block a user, the unfriend action should be taken first (the button `Block` is available if viewed user is not a friend).*
-
-***To implement the live chat functionality, the following concepts were used :***
-- *Django Channels (Websockets)*
-- *ASGI (Asynchronous Server Gateway Interface) with Daphne server (pipenv install 'channels[daphne]'). In `settings.py` changed the `WSGI_APPLICATION` to `ASGI_APPLICATION`.*
-- *Redis is used for handling the upload of messages between the users. (There is another container in the docker-compose file for the Redis server).*
-- *HTMX (Hypertext Markup eXtension) for the frontend part of the chat application. (this allows to send the messages without refreshing the page).*
-
-*This allows to have asynchronous experience in the chat application when the messages are sent and received in real time.*
-
-
-**That should be it, so far.**  
+- **Project type:** Full-stack multiplayer web application
+- **Context:** School project
+- **Team size:** 3
+- **Timeline:** October 2024 to January 2025
+- **Duration:** Approximately 4 months
+- **Final grade:** 118/100
+- **Bonus work:** Some bonus modules completed, including expanded real-time/social functionality and a CLI game client
 
